@@ -1,12 +1,12 @@
 {
-  "name": "session-music",
-  "description": "Session Music: music that follows your Claude Code session.",
+  "name": "agent-anthem",
+  "description": "Agent Anthem: music that follows your Claude Code session.",
   "owner": {
     "name": "Moonlathe Technologies"
   },
   "plugins": [
     {
-      "name": "session-music",
+      "name": "agent-anthem",
       "source": "./",
       "description": "Music that follows your Claude Code session, made on your machine."
     }

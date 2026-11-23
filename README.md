@@ -1,6 +1,7 @@
-# Session Music
+# Agent Anthem
 
-Music that follows your Claude Code session.
+Your Claude Code agent gets its own theme tune. Hear when it's busy, hear when something fails, and never miss the
+moment it finishes, without watching the terminal.
 
 - **Calm** while you read and think.
 - **Busier** while the agent works: the more it does, the more the band joins in.
@@ -19,8 +20,8 @@ went, saved as a video you can post.
 In Claude Code:
 
 ```
-/plugin marketplace add moonlathe-technologies/session-music
-/plugin install session-music@session-music
+/plugin marketplace add moonlathe-technologies/agent-anthem
+/plugin install agent-anthem@agent-anthem
 ```
 
 Start a new session, then open **http://localhost:4777** and press **Start the music**. The server starts by itself
@@ -34,7 +35,7 @@ your prompts, code or output, and it fetches nothing from the internet: the inst
 
 ## Settings
 
-- `SESSION_MUSIC_PORT`: use another port (default 4777).
+- `AGENT_ANTHEM_PORT`: use another port (default 4777).
 
 ## Credits
 

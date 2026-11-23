@@ -5,7 +5,7 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-export const PORT = Number(process.env.SESSION_MUSIC_PORT || 4777);
+export const PORT = Number(process.env.AGENT_ANTHEM_PORT || 4777);
 const PUBLIC = new URL("./public/", import.meta.url);
 const TYPES = { html: "text/html; charset=utf-8", js: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8", mp3: "audio/mpeg", svg: "image/svg+xml" };
 const HISTORY_MAX = 50000;
@@ -97,5 +97,5 @@ export function createServer() {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   createServer()
     .on("error", e => { if (e.code !== "EADDRINUSE") throw e; }) // another session started it first: fine
-    .listen(PORT, "127.0.0.1", () => console.log(`Session Music on http://localhost:${PORT}`));
+    .listen(PORT, "127.0.0.1", () => console.log(`Agent Anthem on http://localhost:${PORT}`));
 }

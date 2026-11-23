@@ -1,9 +1,9 @@
 {
-  "name": "session-music",
+  "name": "agent-anthem",
   "version": "0.1.0",
-  "description": "Music that follows your Claude Code session: calm while you think, busier while the agent works, a minor turn when something fails, and a settle when it is your turn. Made on your machine, nothing leaves it.",
+  "description": "Your agent gets its own theme tune. Music that follows your Claude Code session: calm while you think, busier while the agent works, a minor turn when something fails, and a settle when it is your turn. Made on your machine, nothing leaves it.",
   "author": { "name": "Moonlathe Technologies" },
-  "homepage": "https://github.com/moonlathe-technologies/session-music",
+  "homepage": "https://github.com/moonlathe-technologies/agent-anthem",
   "license": "MIT",
   "keywords": ["music", "focus", "hooks", "fun"]
 }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Session Music</title>
+<title>Agent Anthem</title>
 <style>
   :root { --bg: #f6f3ee; --ink: #1f1c18; --soft: #6b6359; --line: #d9d2c7; --card: #fffdf9; --accent: #2f6f5e; --fail: #a4442f; }
   @media (prefers-color-scheme: dark) { :root { --bg: #16181a; --ink: #ece8e1; --soft: #a39b90; --line: #33373b; --card: #1e2124; --accent: #6fc2a6; --fail: #e08a72; } }
@@ -40,7 +40,7 @@
 </head>
 <body>
 <main>
-  <h1>Session Music</h1>
+  <h1>Agent Anthem</h1>
   <p class="lede">Music that follows your Claude Code session. Calm while you think, busier while the agent works, a minor turn when something fails, and a settle when it is your turn again.</p>
 
   <fieldset id="styles"><legend>Style</legend></fieldset>
@@ -151,7 +151,7 @@ function draw(canvas, song, at) {
   });
   g.globalAlpha = 1;
   g.fillStyle = col("--soft"); g.font = "22px system-ui, sans-serif";
-  g.fillText("Made with Session Music", 48, 668);
+  g.fillText("Made with Agent Anthem", 48, 668);
 }
 
 $("makeSong").addEventListener("click", async () => {
