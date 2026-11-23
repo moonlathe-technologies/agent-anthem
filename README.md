@@ -42,4 +42,4 @@ your prompts, code or output, and it fetches nothing from the internet: the inst
 Code: MIT licence. Recorded instruments from [tonejs-instruments](https://github.com/nbrosowsky/tonejs-instruments)
 by Nicholas Brosowsky, CC BY 3.0. See NOTICE.
 
-Made by Moonlathe Technologies.
+Made by [Moonlathe Technologies](https://moonlathetechnologies.com/), a small UK software studio.
