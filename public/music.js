@@ -6,7 +6,8 @@
 // So it never loops: the music moves in 8 bar sections, each with its own chord progression, arpeggio shape,
 // rhythm and a short melody motif, and it changes key every few sections.
 
-let ctx, master, echo, reverbSend, noiseBuffer, driveCurve, ampCurve, recordTap;
+const RECORD_LIFT = 2.5;
+let ctx, master, out, echo, reverbSend, noiseBuffer, driveCurve, ampCurve, recordTap;
 
 const hz = m => 440 * Math.pow(2, (m - 69) / 12);
 const pick = list => list[Math.floor(Math.random() * list.length)];
@@ -314,10 +315,16 @@ export function start(volume = 0.7) {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -16; comp.ratio.value = 4;
+    // Everything plays into master; the volume slider only sets what you hear, so a saved video is
+    // always recorded at the same level, lifted and limited to sit near social video loudness.
     master = ctx.createGain();
-    master.connect(comp); comp.connect(ctx.destination);
+    out = ctx.createGain();
+    master.connect(comp); comp.connect(out); out.connect(ctx.destination);
+    const lift = ctx.createGain(), limit = ctx.createDynamicsCompressor();
+    lift.gain.value = RECORD_LIFT;
+    limit.threshold.value = -4; limit.knee.value = 0; limit.ratio.value = 20; limit.attack.value = 0.002; limit.release.value = 0.1;
     recordTap = ctx.createMediaStreamDestination();
-    comp.connect(recordTap);
+    comp.connect(lift); lift.connect(limit); limit.connect(recordTap);
     const len = ctx.sampleRate * 2.8, impulse = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = impulse.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
     const verb = ctx.createConvolver();
@@ -347,7 +354,7 @@ export function start(volume = 0.7) {
 
 export const running = () => ctx?.state === "running" && state.timer !== null;
 export function stop() { clearTimeout(state.timer); state.timer = null; ctx?.suspend(); }
-export const setVolume = v => master && master.gain.setTargetAtTime(v * 0.6, ctx.currentTime, 0.1);
+export const setVolume = v => out && out.gain.setTargetAtTime(v * 0.6, ctx.currentTime, 0.1);
 export function setStyle(name) {
   state.style = name;
   if (!ctx) return;
