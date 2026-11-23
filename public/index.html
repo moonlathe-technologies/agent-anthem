@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Session Music</title>
+<style>
+  :root { --bg: #f6f3ee; --ink: #1f1c18; --soft: #6b6359; --line: #d9d2c7; --card: #fffdf9; --accent: #2f6f5e; --fail: #a4442f; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #16181a; --ink: #ece8e1; --soft: #a39b90; --line: #33373b; --card: #1e2124; --accent: #6fc2a6; --fail: #e08a72; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  .lede { margin: 0 0 24px; color: var(--soft); }
+  fieldset { border: 0; padding: 0; margin: 0 0 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  legend { font-weight: 600; margin-bottom: 8px; }
+  label.style { display: block; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+  label.style:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  label.style input { margin: 0 6px 0 0; accent-color: var(--accent); }
+  label.style small { display: block; color: var(--soft); font-size: .85rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; }
+  button { font: inherit; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 10px 16px; cursor: pointer; min-height: 44px; }
+  button.go { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .now { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; }
+  .meter { display: flex; gap: 6px; margin-top: 8px; }
+  .meter i { flex: 1; height: 8px; border-radius: 4px; background: var(--line); }
+  .meter i.on { background: var(--accent); }
+  .now.minor .meter i.on { background: var(--fail); }
+  ol { margin: 0; padding-left: 20px; color: var(--soft); font-size: .9rem; }
+  details { margin-top: 20px; color: var(--soft); }
+  .song { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 14px 16px; margin: 20px 0; }
+  .song h2 { margin: 0 0 4px; font-size: 1.1rem; }
+  .song p { margin: 0 0 12px; color: var(--soft); }
+  canvas, video { width: 100%; max-width: 360px; border-radius: 8px; display: block; margin-top: 12px; }
+  .credit { margin-top: 28px; font-size: .8rem; color: var(--soft); }
+  .credit a { color: inherit; }
+  details .row { margin: 12px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Session Music</h1>
+  <p class="lede">Music that follows your Claude Code session. Calm while you think, busier while the agent works, a minor turn when something fails, and a settle when it is your turn again.</p>
+
+  <fieldset id="styles"><legend>Style</legend></fieldset>
+
+  <div class="row">
+    <button class="go" id="play" type="button">Start the music</button>
+    <label>Volume <input id="volume" type="range" min="0" max="1" step="0.05" value="0.7"></label>
+  </div>
+
+  <div class="now" id="now" aria-live="polite">
+    <div id="status">Not playing yet. Press start, then use Claude Code as normal.</div>
+    <div class="meter" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <ol id="log" reversed></ol>
+
+  <section class="song">
+    <h2>Your session as a song</h2>
+    <p>Plays your latest Claude Code session back as a short piece, with a picture of how it went, and saves it as a video you can post. Keep this tab in view while it records.</p>
+    <button type="button" id="makeSong">Make my session's song</button>
+    <span id="songStatus" aria-live="polite"></span>
+    <canvas id="songCanvas" width="720" height="720" hidden></canvas>
+    <div id="songOut"></div>
+  </section>
+
+  <details>
+    <summary>Try it without Claude Code</summary>
+    <div class="row">
+      <button type="button" data-try="prompt">You ask</button>
+      <button type="button" data-try="tool">It works</button>
+      <button type="button" data-try="fail">Something fails</button>
+      <button type="button" data-try="done">It finishes</button>
+      <button type="button" data-try="waiting">It needs you</button>
+    </div>
+  </details>
+  <p class="credit">Made on your machine; nothing about your session leaves it. Recorded instruments from <a href="https://github.com/nbrosowsky/tonejs-instruments">tonejs-instruments</a> by Nicholas Brosowsky (CC BY 3.0), drawn from VSCO 2, Karoryfer, Freesound and the University of Iowa. Everything else is made on the fly.</p>
+</main>
+<script type="module">
+import { STYLES, state, start, stop, hear, setStyle, setVolume, running, loadedFor, playSong, recordStream } from "./music.js";
+import { songOf, BARS } from "./song.js";
+
+const $ = id => document.getElementById(id);
+const remember = (k, v) => { try { v === undefined ? null : localStorage.setItem(k, v); return localStorage.getItem(k); } catch { return null; } };
+const saved = remember("style");
+if (saved && STYLES[saved]) state.style = saved;
+
+$("styles").insertAdjacentHTML("beforeend", Object.entries(STYLES).map(([key, s]) =>
+  `<label class="style"><input type="radio" name="style" value="${key}"${key === state.style ? " checked" : ""}>${s.name}<small>${s.note}</small></label>`).join(""));
+$("styles").addEventListener("change", e => { setStyle(e.target.value); remember("style", e.target.value); });
+
+const vol = remember("volume");
+if (vol) $("volume").value = vol;
+$("volume").addEventListener("input", e => { setVolume(+e.target.value); remember("volume", e.target.value); });
+
+let playing = false;
+function setPlaying(on, keep = true) {
+  playing = on;
+  on ? start(+$("volume").value) : stop();
+  if (keep) remember("playing", on ? "1" : "0");
+  $("play").textContent = on ? "Pause" : "Start the music";
+  render();
+}
+$("play").addEventListener("click", () => setPlaying(!playing));
+// It was playing last time: carry on. The browser may want a click first, so the first click anywhere starts it.
+if (remember("playing") === "1") {
+  setPlaying(true);
+  // The browser wants a click before it plays sound: show Start again, and keep the wish to play for next time.
+  setTimeout(() => { if (!running()) { setPlaying(false, false); $("status").textContent = "Press Start the music to carry on."; } }, 600);
+}
+
+const WORDS = { prompt: "You asked", tool: "Working", fail: "Something failed", done: "Finished, your turn", waiting: "Waiting for you" };
+function render(last) {
+  const lvl = state.script ? state.level : state.working ? Math.min(3, 1 + Math.floor(state.energy / 5)) : 0;
+  $("now").classList.toggle("minor", state.minorBars > 0);
+  document.querySelectorAll(".meter i").forEach((el, k) => el.classList.toggle("on", k <= lvl));
+  const what = !playing ? (remember("playing") === "1" ? "Press Start the music to carry on." : "Paused.") : state.script ? "Playing your session's song."
+    : last ? `${WORDS[last.kind]}${last.tool ? ` (${last.tool})` : ""}` : state.working ? "Working" : "Calm. Your turn.";
+  $("status").textContent = what + (playing && !loadedFor(state.style) ? " Loading the recorded instruments." : "");
+}
+function onEvent(event) {
+  hear(event);
+  const li = document.createElement("li");
+  li.textContent = `${new Date().toLocaleTimeString("en-GB")} ${WORDS[event.kind]}${event.tool ? ` (${event.tool})` : ""}`;
+  $("log").prepend(li);
+  while ($("log").children.length > 8) $("log").lastChild.remove();
+  render(event);
+}
+document.querySelectorAll("[data-try]").forEach(b => b.addEventListener("click", () => onEvent({ kind: b.dataset.try, tool: b.dataset.try === "tool" ? "Bash" : undefined })));
+new EventSource("/events").onmessage = m => onEvent(JSON.parse(m.data));
+setInterval(() => render(), 2000);
+
+function draw(canvas, song, at) {
+  const g = canvas.getContext("2d"), css = getComputedStyle(document.documentElement), W = canvas.width;
+  const col = n => css.getPropertyValue(n).trim();
+  g.fillStyle = col("--card"); g.fillRect(0, 0, W, W);
+  g.fillStyle = col("--ink"); g.font = "600 40px system-ui, sans-serif";
+  g.fillText("What my Claude Code", 48, 96); g.fillText("session sounded like", 48, 146);
+  g.fillStyle = col("--soft"); g.font = "26px system-ui, sans-serif";
+  const hours = song.minutes >= 90 ? `${Math.floor(song.minutes / 60)}h ${song.minutes % 60}m` : `${song.minutes} min`;
+  g.fillText(`${song.project}, ${hours}, ${song.tools} tool calls, ${song.fails} ${song.fails === 1 ? "failure" : "failures"}`, 48, 196);
+  g.fillText(`${STYLES[state.style].name} style`, 48, 236);
+  const left = 48, bottom = 600, w = (W - 96) / BARS;
+  song.bars.forEach((b, k) => {
+    const h = 30 + b.level * 90;
+    g.fillStyle = b.minor ? col("--fail") : col("--accent");
+    g.globalAlpha = k < at ? 1 : 0.3;
+    g.fillRect(left + k * w + 4, bottom - h, w - 8, h);
+  });
+  g.globalAlpha = 1;
+  g.fillStyle = col("--soft"); g.font = "22px system-ui, sans-serif";
+  g.fillText("Made with Session Music", 48, 668);
+}
+
+$("makeSong").addEventListener("click", async () => {
+  const song = songOf(await (await fetch("/history")).json());
+  if (!song) { $("songStatus").textContent = " Not enough of a session yet. Use Claude Code for a bit first."; return; }
+  if (!playing) setPlaying(true);
+  const canvas = $("songCanvas");
+  canvas.hidden = false;
+  $("songOut").textContent = "";
+  $("makeSong").disabled = true;
+  let at = 0, timer;
+  const paint = () => { draw(canvas, song, at); timer = setTimeout(paint, 40); };
+  paint();
+  const stream = new MediaStream([...canvas.captureStream(25).getVideoTracks(), ...recordStream().getAudioTracks()]);
+  const type = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm"].find(t => MediaRecorder.isTypeSupported(t));
+  const rec = new MediaRecorder(stream, { mimeType: type }), chunks = [];
+  rec.ondataavailable = e => chunks.push(e.data);
+  rec.onstop = () => {
+    clearTimeout(timer);
+    const blob = new Blob(chunks, { type: rec.mimeType }), url = URL.createObjectURL(blob), ext = rec.mimeType.includes("mp4") ? "mp4" : "webm";
+    $("songOut").innerHTML = `<video controls src="${url}"></video><p><a download="my-session-song.${ext}" href="${url}">Save the video</a></p>`;
+    canvas.hidden = true;
+    $("makeSong").disabled = false;
+    $("songStatus").textContent = " Done.";
+  };
+  state.onBar = () => { at++; render(); };
+  $("songStatus").textContent = " Recording. This takes about a minute.";
+  rec.start();
+  playSong(song.bars, () => { at = BARS + 1; state.onBar = null; setTimeout(() => rec.stop(), 3000); });
+});
+
+</script>
+</body>
+</html>

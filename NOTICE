@@ -1,0 +1,10 @@
+The instrument samples in public/samples come from tonejs-instruments by Nicholas Brosowsky
+(https://github.com/nbrosowsky/tonejs-instruments), licensed CC BY 3.0
+(https://creativecommons.org/licenses/by/3.0/). They were edited there from these sources:
+
+- piano, violin, contrabass: VSCO 2 Community Edition (http://vis.versilstudios.net/vsco-community.html)
+- cello: Freesound, 12408 flcellogrl "real cello notes" (https://freesound.org)
+- electric guitar, electric bass: Karoryfer Samples (https://www.karoryfer.com/karoryfer-samples)
+- acoustic guitar: University of Iowa Electronic Music Studios (http://theremin.music.uiowa.edu/)
+
+Only a subset of notes is included. The files are unchanged from tonejs-instruments.

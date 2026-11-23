@@ -1,0 +1,10 @@
+{
+  "name": "session-music",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Music that follows your Claude Code session.",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}
