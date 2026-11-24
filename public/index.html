@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Agent Anthem</title>
 <style>
-  :root { --bg: #f6f3ee; --ink: #1f1c18; --soft: #6b6359; --line: #d9d2c7; --card: #fffdf9; --accent: #2f6f5e; --fail: #a4442f; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #16181a; --ink: #ece8e1; --soft: #a39b90; --line: #33373b; --card: #1e2124; --accent: #6fc2a6; --fail: #e08a72; } }
+  :root { color-scheme: dark; --bg: #0a1026; --ink: #eef1ff; --soft: #b8c0e6; --line: #2b3a78; --card: #121a3a; --accent: #ffcf5a; --fail: #ff8a8a; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
   main { max-width: 640px; margin: 0 auto; padding: 32px 16px 48px; }
@@ -36,11 +35,19 @@
   .credit { margin-top: 28px; font-size: .8rem; color: var(--soft); }
   .credit a { color: inherit; }
   details .row { margin: 12px 0 0; }
+  .city { position: relative; height: min(56vh, 520px); min-height: 300px; background: var(--bg); }
+  .city canvas { width: 100%; height: 100%; max-width: none; margin: 0; border-radius: 0; }
+  .cityText { position: absolute; left: 16px; top: 16px; right: 16px; max-width: 520px; }
+  .cityText h1 { font-size: 2rem; }
+  .cityText p { margin: 0; color: var(--soft); }
 </style>
 </head>
 <body>
+<div class="city">
+  <canvas id="city" role="img" aria-label="Your night city. Each tool call lights a window, each finished task starts a new tower."></canvas>
+  <div class="cityText"><h1>Agent Anthem</h1><p id="cityLine" aria-live="polite"></p></div>
+</div>
 <main>
-  <h1>Agent Anthem</h1>
   <p class="lede">Music that follows your Claude Code session. Calm while you think, busier while the agent works, a minor turn when something fails, and a settle when it is your turn again.</p>
 
   <fieldset id="styles"><legend>Style</legend></fieldset>
@@ -81,6 +88,7 @@
 <script type="module">
 import { STYLES, state, start, stop, hear, setStyle, setVolume, running, loadedFor, playSong, recordStream } from "./music.js";
 import { songOf, BARS } from "./song.js";
+import { load, save, grow, draw as drawCity, effect, alive, addEffect, windowsLit, towerCount } from "./city.js";
 
 const $ = id => document.getElementById(id);
 const remember = (k, v) => { try { v === undefined ? null : localStorage.setItem(k, v); return localStorage.getItem(k); } catch { return null; } };
@@ -89,7 +97,7 @@ if (saved && STYLES[saved]) state.style = saved;
 
 $("styles").insertAdjacentHTML("beforeend", Object.entries(STYLES).map(([key, s]) =>
   `<label class="style"><input type="radio" name="style" value="${key}"${key === state.style ? " checked" : ""}>${s.name}<small>${s.note}</small></label>`).join(""));
-$("styles").addEventListener("change", e => { setStyle(e.target.value); remember("style", e.target.value); });
+$("styles").addEventListener("change", e => { setStyle(e.target.value); remember("style", e.target.value); paintCity(); });
 
 const vol = remember("volume");
 if (vol) $("volume").value = vol;
@@ -111,6 +119,36 @@ if (remember("playing") === "1") {
   setTimeout(() => { if (!running()) { setPlaying(false, false); $("status").textContent = "Press Start the music to carry on."; } }, 600);
 }
 
+// The night city grows from the same events as the music and is kept in this browser.
+const city = load(remember("city"));
+let fx = [], waiting = false, frame = null;
+const cityCanvas = $("city");
+function paintCity() {
+  const r = cityCanvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1, now = performance.now();
+  if (cityCanvas.width !== Math.round(r.width * dpr) || cityCanvas.height !== Math.round(r.height * dpr)) {
+    cityCanvas.width = Math.round(r.width * dpr); cityCanvas.height = Math.round(r.height * dpr);
+  }
+  const g = cityCanvas.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fx = fx.filter(f => alive(f, now));
+  drawCity(g, city, { w: r.width, h: r.height, style: state.style, fx, waiting, now });
+  const towers = towerCount(city);
+  $("cityLine").textContent = `Your city: ${towers} ${towers === 1 ? "tower" : "towers"}, ${windowsLit(city)} lit windows.`;
+  clearTimeout(frame);
+  // Only animate while something is happening, so an idle tab costs nothing.
+  if (fx.length || waiting) frame = setTimeout(paintCity, 33);
+}
+function cityHears(kind) {
+  grow(city, kind);
+  if (kind === "waiting") waiting = true;
+  else if (kind === "prompt" || kind === "tool") waiting = false;
+  fx = addEffect(fx, effect(kind, performance.now()));
+  remember("city", save(city));
+  paintCity();
+}
+window.addEventListener("resize", paintCity);
+paintCity();
+
 const WORDS = { prompt: "You asked", tool: "Working", fail: "Something failed", done: "Finished, your turn", waiting: "Waiting for you" };
 function render(last) {
   const lvl = state.script ? state.level : state.working ? Math.min(3, 1 + Math.floor(state.energy / 5)) : 0;
@@ -122,6 +160,7 @@ function render(last) {
 }
 function onEvent(event) {
   hear(event);
+  cityHears(event.kind);
   const li = document.createElement("li");
   li.textContent = `${new Date().toLocaleTimeString("en-GB")} ${WORDS[event.kind]}${event.tool ? ` (${event.tool})` : ""}`;
   $("log").prepend(li);
