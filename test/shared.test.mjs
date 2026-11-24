@@ -57,3 +57,9 @@ test("other builders become drawable towers, without me", () => {
   assert.equal(others.length, 1);
   assert.deepEqual(others[0], { name: "Owl", active: true, towers: [{ ...newTower(5), r: 4, l: 6 }] });
 });
+
+test("neighbours keep their place in the skyline whoever reported last", () => {
+  const a = { name: "Amber Wren", towers: [[1, 3, 2]], seen: 5 }, b = { name: "Brass Pike", towers: [[2, 3, 2]], seen: 9 };
+  assert.deepEqual(othersOf([b, a], 10).map(o => o.name), ["Amber Wren", "Brass Pike"]);
+  assert.deepEqual(othersOf([a, { ...b, seen: 1 }], 10).map(o => o.name), ["Amber Wren", "Brass Pike"]);
+});

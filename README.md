@@ -49,6 +49,17 @@ totals and the size of your newest towers. Never code, prompts, file or project 
 
 - `AGENT_ANTHEM_PORT`: use another port (default 4777).
 
+## Replays and a busy test city
+
+To watch everything happen in minutes, save a real session and play it back, sped up:
+
+```
+node tools/replay.mjs save my-session
+node tools/replay.mjs play my-session 10 3   # 10 times faster, quiet spells cut to 3 seconds
+```
+
+The replay builds your own city as a real session would. For a full shared city, run a test copy of the city server with `npx wrangler dev` in `city-server`, add made-up builders with `node tools/seed-city.mjs 30`, and in the page's console set `localStorage.cityApi = "http://127.0.0.1:8787"` (remove it to go back). The seeding script refuses to run against the live city.
+
 ## Credits
 
 Code: MIT licence. Recorded instruments from [tonejs-instruments](https://github.com/nbrosowsky/tonejs-instruments)

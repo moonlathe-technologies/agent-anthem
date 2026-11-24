@@ -50,7 +50,8 @@ export const reportOf = (city, name) => ({
   total: { towers: city.old.towers + city.towers.length, windows: city.old.windows + city.towers.reduce((a, t) => a + t.l, 0) },
 });
 
-// Turn the server's view into towers the city drawing understands.
+// Turn the server's view into towers the city drawing understands, in name order so each keeps its place.
 export const othersOf = (builders, now) => builders
   .filter(b => !b.me)
+  .sort((a, b) => a.name.localeCompare(b.name))
   .map(b => ({ name: b.name, active: isActive(b.seen, now), towers: b.towers.map(([n, r, l]) => ({ ...newTower(n), r, l })) }));
