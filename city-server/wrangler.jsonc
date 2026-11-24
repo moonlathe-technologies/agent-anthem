@@ -1,0 +1,16 @@
+{
+  "name": "agent-anthem-city",
+  "account_id": "ee761399e7df00eaf319977282569c12",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-11-01",
+  "durable_objects": {
+    "bindings": [
+      { "name": "WORLD", "class_name": "World" },
+      { "name": "HOOD", "class_name": "Neighbourhood" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["World", "Neighbourhood"] }],
+  "workers_dev": false,
+  "routes": [{ "pattern": "anthem.moonlathetechnologies.com", "custom_domain": true }],
+  "observability": { "enabled": true }
+}

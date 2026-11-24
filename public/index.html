@@ -35,6 +35,8 @@
   .credit { margin-top: 28px; font-size: .8rem; color: var(--soft); }
   .credit a { color: inherit; }
   details .row { margin: 12px 0 0; }
+  .small { font-size: .9rem; }
+  input[type=text], #builderName { font: inherit; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-height: 44px; margin-left: 6px; }
   .city { position: relative; height: min(56vh, 520px); min-height: 300px; background: var(--bg); }
   .city canvas { width: 100%; height: 100%; max-width: none; margin: 0; border-radius: 0; }
   .cityText { position: absolute; left: 16px; top: 16px; right: 16px; max-width: 520px; }
@@ -64,6 +66,17 @@
 
   <ol id="log" reversed></ol>
 
+  <section class="song" id="shared">
+    <h2>Shared city</h2>
+    <p>Build alongside everyone else running Agent Anthem. Your towers stay in front, and other builders' rise behind as they work. Their lights go off when they stop.</p>
+    <p class="small">If you join, this page sends anthem.moonlathetechnologies.com your builder name and numbers only: how many towers and lit windows you have, and the size of your newest towers. Never your code, prompts, files or project names. Leave any time and your towers are taken down.</p>
+    <div class="row">
+      <label>Builder name <input id="builderName" maxlength="24" autocomplete="off"></label>
+      <button type="button" id="join">Join the shared city</button>
+    </div>
+    <p id="sharedStatus" class="small" aria-live="polite"></p>
+  </section>
+
   <section class="song">
     <h2>Your session as a song</h2>
     <p>Plays your latest Claude Code session back as a short piece, with a picture of how it went, and saves it as a video you can post. Keep this tab in view while it records.</p>
@@ -83,12 +96,13 @@
       <button type="button" data-try="waiting">It needs you</button>
     </div>
   </details>
-  <p class="credit">Made on your machine; nothing about your session leaves it. Recorded instruments from <a href="https://github.com/nbrosowsky/tonejs-instruments">tonejs-instruments</a> by Nicholas Brosowsky (CC BY 3.0), drawn from VSCO 2, Karoryfer, Freesound and the University of Iowa. Everything else is made on the fly. Made by <a href="https://moonlathetechnologies.com/">Moonlathe Technologies</a>.</p>
+  <p class="credit">Made on your machine; nothing about your session leaves it unless you join the shared city, which gets numbers only. Recorded instruments from <a href="https://github.com/nbrosowsky/tonejs-instruments">tonejs-instruments</a> by Nicholas Brosowsky (CC BY 3.0), drawn from VSCO 2, Karoryfer, Freesound and the University of Iowa. Everything else is made on the fly. Made by <a href="https://moonlathetechnologies.com/">Moonlathe Technologies</a>.</p>
 </main>
 <script type="module">
 import { STYLES, state, start, stop, hear, setStyle, setVolume, running, loadedFor, playSong, recordStream } from "./music.js";
 import { songOf, BARS } from "./song.js";
 import { load, save, grow, draw as drawCity, effect, alive, addEffect, windowsLit, towerCount } from "./city.js";
+import { CITY_API, randomName, cleanName, reportOf, othersOf } from "./shared.js";
 
 const $ = id => document.getElementById(id);
 const remember = (k, v) => { try { v === undefined ? null : localStorage.setItem(k, v); return localStorage.getItem(k); } catch { return null; } };
@@ -131,7 +145,7 @@ function paintCity() {
   const g = cityCanvas.getContext("2d");
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   fx = fx.filter(f => alive(f, now));
-  drawCity(g, city, { w: r.width, h: r.height, style: state.style, fx, waiting, now });
+  drawCity(g, city, { w: r.width, h: r.height, style: state.style, fx, waiting, now, others, far });
   const towers = towerCount(city);
   $("cityLine").textContent = `Your city: ${towers} ${towers === 1 ? "tower" : "towers"}, ${windowsLit(city)} lit windows.`;
   clearTimeout(frame);
@@ -145,7 +159,50 @@ function cityHears(kind) {
   fx = addEffect(fx, effect(kind, performance.now()));
   remember("city", save(city));
   paintCity();
+  if (joined) { clearTimeout(reportSoon); reportSoon = setTimeout(report, 20000); }
 }
+
+// The shared city. Off until the builder joins; then the page reports numbers only and fetches the neighbours.
+let joined = remember("shared") === "1", others = [], far = 0, reportSoon = null, lastSent = "";
+const builderId = remember("builderId") || remember("builderId", crypto.randomUUID()) || crypto.randomUUID();
+const API = remember("cityApi") || CITY_API; // cityApi in local storage points a test copy at a test server
+let builderName = cleanName(remember("builderName") || randomName());
+remember("builderName", builderName);
+$("builderName").value = builderName;
+const post = (path, body) => fetch(API + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+async function report(force = false) {
+  const body = { id: builderId, ...reportOf(city, builderName) }, text = JSON.stringify(body);
+  if (!joined || (!force && text === lastSent)) return;
+  try { const r = await post("/api/report", body); if (r.ok) lastSent = text; } catch { $("sharedStatus").textContent = "Can't reach the shared city right now. Your own city carries on."; }
+}
+async function pull() {
+  if (!joined) return;
+  try {
+    const d = await (await fetch(`${API}/api/city?id=${builderId}`)).json(), now = Date.now();
+    others = othersOf(d.builders, now);
+    far = Math.max(0, d.world.towers - towerCount(city) - others.reduce((a, b) => a + b.towers.length, 0));
+    const working = others.filter(b => b.active).length;
+    $("sharedStatus").textContent = `You're ${builderName}. ${others.length} other ${others.length === 1 ? "builder" : "builders"} in your neighbourhood, ${working} working now. The whole city: ${d.world.builders} builders, ${d.world.towers} towers.`;
+    paintCity();
+  } catch { $("sharedStatus").textContent = "Can't reach the shared city right now. Your own city carries on."; }
+}
+function showJoined() { $("join").textContent = joined ? "Leave the shared city" : "Join the shared city"; if (!joined) $("sharedStatus").textContent = ""; }
+$("join").addEventListener("click", async () => {
+  joined = !joined;
+  remember("shared", joined ? "1" : "0");
+  showJoined();
+  if (joined) { await report(true); await pull(); }
+  else { others = []; far = 0; paintCity(); try { await post("/api/leave", { id: builderId }); } catch {} }
+});
+$("builderName").addEventListener("change", e => {
+  builderName = cleanName(e.target.value);
+  e.target.value = builderName;
+  remember("builderName", builderName);
+  report(true).then(pull);
+});
+showJoined();
+if (joined) report(true).then(pull);
+setInterval(() => { if (!document.hidden) { report(); pull(); } }, 60000);
 window.addEventListener("resize", paintCity);
 paintCity();
 

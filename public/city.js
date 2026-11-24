@@ -7,6 +7,7 @@
 export const KEEP = 40;      // towers kept in detail
 export const FRONT = 16;     // of those, how many stand in the front row
 export const MAX_ROWS = 24;  // a tower this tall is topped out and the next one starts
+export const MAX_OTHERS = 160; // other builders' towers drawn at once
 
 // A small seeded random source, so tower n always has the same shape.
 export const rng = seed => () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
@@ -69,7 +70,7 @@ export const WEATHER = {
 const FX_TIME = { prompt: 2200, done: 1400, fail: 1600 };
 
 // Draw the city onto a 2D canvas context. fx is a list of { kind, at, ... } effects; now is the current time in ms.
-export function draw(g, city, { w, h, style = "drift", fx = [], waiting = false, now = 0 }) {
+export function draw(g, city, { w, h, style = "drift", fx = [], waiting = false, now = 0, others = [], far = 0 }) {
   const wx = WEATHER[style] || WEATHER.drift;
   g.fillStyle = wx.sky; g.fillRect(0, 0, w, h);
 
@@ -81,16 +82,18 @@ export function draw(g, city, { w, h, style = "drift", fx = [], waiting = false,
 
   const groundY = h - Math.round(h * 0.09);
 
-  // Old town: one far silhouette whatever its size, so drawing it never gets slower.
-  if (city.old.towers) {
-    const r = rng(99), n = Math.min(80, 10 + city.old.towers), bw = w / n;
-    const tall = Math.min(0.42, 0.12 + city.old.towers / 2000);
+  // Old town, plus the rest of the world when in the shared city: one far silhouette whatever its size,
+  // so drawing it never gets slower.
+  const distant = city.old.towers + far;
+  if (distant) {
+    const r = rng(99), n = Math.min(80, 10 + distant), bw = w / n;
+    const tall = Math.min(0.42, 0.12 + distant / 2000);
     g.fillStyle = wx.far;
     for (let i = 0; i < n; i++) { const th = h * tall * (0.4 + r() * 0.6); g.fillRect(i * bw, groundY - th, bw + 1, th); }
   }
 
   const front = city.towers.slice(-FRONT), back = city.towers.slice(0, -FRONT);
-  const row = (towers, scale, alpha, baseY) => {
+  const row = (towers, scale, alpha, baseY, lightsOn = () => true) => {
     const widthOf = t => (t.c * 10 + 8) * scale, gap = 6 * scale;
     const total = towers.reduce((a, t) => a + widthOf(t) + gap, -gap);
     let x = (w - total) / 2;
@@ -101,7 +104,7 @@ export function draw(g, city, { w, h, style = "drift", fx = [], waiting = false,
       g.fillStyle = wx.towers[t.n % 4]; g.fillRect(x, baseY - th, tw, th);
       for (let i = 0; i < capacity(t); i++) {
         const rr = Math.floor(i / t.c), cc = i % t.c, order = (t.r - 1 - rr) * t.c + cc;
-        g.fillStyle = order < t.l ? wx.lit : wx.dark;
+        g.fillStyle = order < t.l && lightsOn(t) ? wx.lit : wx.dark;
         g.fillRect(x + (5 + cc * 10) * scale, baseY - th + (8 + rr * 12) * scale, 6 * scale, 8 * scale);
       }
       placed.push({ t, x, y: baseY - th, w: tw, h: th, scale });
@@ -111,7 +114,11 @@ export function draw(g, city, { w, h, style = "drift", fx = [], waiting = false,
     return placed;
   };
   const fit = towers => towers.reduce((a, t) => a + t.c * 10 + 14, 0);
-  const frontScale = Math.min(2, (w * 0.94) / Math.max(1, fit(front)), (groundY * 0.8) / Math.max(1, ...front.map(t => t.r * 12 + 12)));
+  // Other builders in the shared city: their two newest towers each, behind yours. Quiet builders go dark.
+  const theirs = others.flatMap(b => b.towers.slice(-2).map(t => ({ ...t, on: b.active }))).slice(0, MAX_OTHERS);
+  const tallest = list => Math.max(1, ...list.map(t => t.r * 12 + 12));
+  if (theirs.length) row(theirs, Math.min(1.4, (w * 0.98) / fit(theirs), (groundY * 0.85) / tallest(theirs)), 0.7, groundY - 6, t => t.on);
+  const frontScale = Math.min(2, (w * 0.94) / Math.max(1, fit(front)), (groundY * 0.8) / tallest(front));
   if (back.length) row(back, Math.min(frontScale * 0.55, (w * 0.98) / fit(back)), 0.55, groundY - 8);
   g.fillStyle = wx.ground; g.fillRect(0, groundY, w, h - groundY);
   const placed = row(front, frontScale, 1, groundY + 4);
