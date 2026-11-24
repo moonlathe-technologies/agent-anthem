@@ -4,20 +4,9 @@
 
 import { DurableObject } from "cloudflare:workers";
 import { cleanReport, neighbourhoodOf, isKept, REPORT_GAP_MS } from "../public/shared.js";
+import { allowedOrigin, json, preflight } from "./http.mjs";
 
-const ORIGINS = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const ID = /^[a-f0-9-]{36}$/;
-
-const json = (data, status, origin) => new Response(JSON.stringify(data), {
-  status,
-  headers: {
-    "content-type": "application/json",
-    "access-control-allow-origin": origin,
-    "access-control-allow-methods": "GET, POST, OPTIONS",
-    "access-control-allow-headers": "content-type",
-    "cache-control": "no-store",
-  },
-});
 
 export class World extends DurableObject {
   constructor(ctx, env) {
@@ -71,9 +60,8 @@ export class Neighbourhood extends DurableObject {
 
 export default {
   async fetch(request, env) {
-    const origin = request.headers.get("origin") || "";
-    const allow = ORIGINS.test(origin) ? origin : "null";
-    if (request.method === "OPTIONS") return json({}, 204, allow);
+    const allow = allowedOrigin(request);
+    if (request.method === "OPTIONS") return preflight(allow);
     const url = new URL(request.url), now = Date.now();
     const world = env.WORLD.get(env.WORLD.idFromName("world"));
     const hood = k => env.HOOD.get(env.HOOD.idFromName(`n${k}`));
